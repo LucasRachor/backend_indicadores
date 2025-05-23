@@ -1,0 +1,137 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Historico {
+  id            Int      @id @default(autoincrement())
+  usuarioId     Int
+  itemId        Int
+  setorId       Int
+  ano           Int
+  mes           Int
+  valorFieam    Float
+  valorSesi     Float
+  valorSenai    Float
+  valorIel      Float
+  totalGeral    Float
+  dataAlteracao DateTime @default(now())
+  item          Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  setor         Setor    @relation(fields: [setorId], references: [id])
+  usuario       Usuario  @relation(fields: [usuarioId], references: [id])
+
+  @@index([itemId])
+  @@index([setorId])
+  @@index([usuarioId])
+  @@map("historicos")
+}
+
+model Instituicao {
+  id      Int          @id @default(autoincrement())
+  nome    String       @unique
+  valores valor_item[]
+
+  @@map("instituicoes")
+}
+
+model Item {
+  id        Int          @id @default(autoincrement())
+  nome      String
+  detalhes  String?
+  setor_id  Int
+  setor     Setor        @relation(fields: [setor_id], references: [id])
+  ano       Int
+  atividade Boolean      @default(false)
+  valores   valor_item[]
+  createdAt DateTime     @default(now())
+  Historico Historico[]
+
+  @@map("items")
+}
+
+model Perfil {
+  id       Int       @id @default(autoincrement())
+  nome     String    @unique
+  detalhes String?
+  tipo     String
+  usuarios Usuario[]
+
+  @@map("perfis")
+}
+
+model Setor {
+  id                   Int                    @id @default(autoincrement())
+  nome                 String                 @unique
+  descricao            String?
+  tipo                 String
+  historicos           Historico[]
+  itens                Item[]
+  usuarios             Usuario[]
+  usuarioSetores       UsuarioSetor[]
+  JornadaColaboradores JornadaColaboradores[]
+
+  @@map("setores")
+}
+
+model Usuario {
+  id              Int                    @id @default(autoincrement())
+  nome            String
+  email           String                 @unique
+  senha           String
+  jornadaTrabalho String
+  statusSenha     Boolean                @default(true)
+  perfilId        Int
+  setorId         Int?
+  perfil          Perfil                 @relation(fields: [perfilId], references: [id])
+  setor           Setor?                 @relation(fields: [setorId], references: [id])
+  historicos      Historico[]
+  usuarioSetores  UsuarioSetor[]
+  jornadas        JornadaColaboradores[] // <- RELAÇÃO INVERTIDA ADICIONADA
+
+  @@index([perfilId])
+  @@index([setorId])
+  @@map("usuarios")
+}
+
+model UsuarioSetor {
+  usuarioId Int
+  setorId   Int
+  usuario   Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  setor     Setor   @relation(fields: [setorId], references: [id], onDelete: Cascade)
+
+  @@id([usuarioId, setorId])
+  @@index([setorId])
+  @@map("usuario_setor")
+}
+
+model valor_item {
+  id             Int         @id @default(autoincrement())
+  item_id        Int
+  instituicao_id Int
+  mes            Int
+  valor          Decimal?    @default(0.00)
+  item           Item        @relation(fields: [item_id], references: [id], onDelete: Cascade)
+  instituicao    Instituicao @relation(fields: [instituicao_id], references: [id])
+}
+
+model JornadaColaboradores {
+  id            Int      @id @default(autoincrement())
+  colaborador   Usuario  @relation(fields: [colaboradorId], references: [id], onDelete: Cascade)
+  colaboradorId Int
+  setorId       Int
+  setor         Setor    @relation(fields: [setorId], references: [id], onDelete: Cascade)
+  ano           Int
+  mes           Int
+  dia           Int
+  valor         String
+  motivo        String?
+  criadoEm      DateTime @default(now())
+  atualizadoEm  DateTime @default(now())
+
+  @@unique([colaboradorId, ano, mes, dia])
+  @@map("jornada_colaboradores")
+}
