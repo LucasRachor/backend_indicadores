@@ -137,7 +137,8 @@ const listarValorItens = async (req, res) => {
         select: {
           instituicao_id: true,
           mes: true,
-          valor: true
+          valor: true,
+          totalGeral: true,
         }
       }
     }

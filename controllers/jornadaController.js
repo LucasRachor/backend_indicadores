@@ -81,27 +81,77 @@ const retornarResumoSetor = async (req, res) => {
 };
 
 const retornarJornadas = async (req, res) => {
-  try {
-    const jornada = await prisma.jornadaColaboradores.findMany({
-      select: {
-        id: true,
-        dia: true,
-        mes: true,
-        ano: true,
-        motivo: true,
-        valor: true,
-        criadoEm: true,
-        atualizadoEm: true,
-        colaborador: {
-          select: {
-            id: true,
-            nome: true,
-          },
+
+  const email = req.email;
+  const perfilId = req.perfilId;
+
+  const usuario = await prisma.usuario.findUnique({
+    where: {
+      email: email
+    },
+    select: {
+      usuarioSetores: {
+        select: {
+          setorId: true,
         }
       }
-    })
+    }
+  })
 
-    return res.json(jornada)
+  const setorIds = usuario.usuarioSetores.map(user => user.setorId)
+
+  try {
+
+    if (perfilId === 1) {
+
+      const jornada = await prisma.jornadaColaboradores.findMany({
+        select: {
+          id: true,
+          dia: true,
+          mes: true,
+          ano: true,
+          motivo: true,
+          valor: true,
+          criadoEm: true,
+          atualizadoEm: true,
+          colaborador: {
+            select: {
+              id: true,
+              nome: true,
+            },
+          }
+        }
+      })
+
+      res.status(200).json({ jornada })
+
+    } else {
+      const jornada = await prisma.jornadaColaboradores.findMany({
+        where: {
+          setorId: {
+            in: setorIds
+          }
+        },
+        select: {
+          id: true,
+          dia: true,
+          mes: true,
+          ano: true,
+          motivo: true,
+          valor: true,
+          criadoEm: true,
+          atualizadoEm: true,
+          colaborador: {
+            select: {
+              id: true,
+              nome: true,
+            },
+          }
+        }
+      })
+
+      res.status(200).json({ jornada })
+    }
 
   } catch (error) {
     res.status(500).json({ message: error.message })

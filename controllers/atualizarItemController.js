@@ -2,125 +2,257 @@ const prisma = require('../prisma/client');
 
 const atualizarValoresItem = async (req, res) => {
   try {
-    const { itemId, setorId, ano, mes, valorFieam, valorSesi, valorSenai, valorIel, totalGeral, estrategia } = req.body;
+    // 1) Extrai do body todos os campos esperados
+    const {
+      setorId,
+      itemId,
+      ano,
+      mes,
+      valorFieam,
+      valorSesi,
+      valorSenai,
+      valorIel,
+      totalGeral,
+      estrategia,
+    } = req.body;
 
-    console.log(req.body)
+    // 2) Normaliza tudo para Number (evita strings “2” etc.)
+    const numericSetorId = Number(setorId);
+    const numericItemId = Number(itemId);
+    const numericAno = Number(ano);
+    const numericMes = Number(mes);
 
+    const vFieamNovo = Number(valorFieam);
+    const vSesiNovo = Number(valorSesi);
+    const vSenaiNovo = Number(valorSenai);
+    const vIelNovo = Number(valorIel);
+    const totGeralNovo = Number(totalGeral);
+
+    if (
+      isNaN(numericSetorId) ||
+      isNaN(numericItemId) ||
+      isNaN(numericAno) ||
+      isNaN(numericMes) ||
+      isNaN(vFieamNovo) ||
+      isNaN(vSesiNovo) ||
+      isNaN(vSenaiNovo) ||
+      isNaN(vIelNovo) ||
+      isNaN(totGeralNovo)
+    ) {
+      return res.status(400).json({ message: 'Dados inválidos no body.' });
+    }
+
+    // 3) Tenta encontrar o histórico existente para (itemId, setorId, ano, mes)
     const historicoExistente = await prisma.historico.findFirst({
       where: {
-        itemId: Number(itemId),
-        setorId: Number(setorId),
-        ano: Number(ano),
-        mes: mes
-      }
+        itemId: numericItemId,
+        setorId: numericSetorId,
+        ano: numericAno,
+        mes: numericMes,
+      },
     });
 
-    let novoHistorico;
+    let novosValoresHistorico = {
+      valorFieam: vFieamNovo,
+      valorSesi: vSesiNovo,
+      valorSenai: vSenaiNovo,
+      valorIel: vIelNovo,
+      totalGeral: totGeralNovo,
+    };
 
     if (historicoExistente) {
-      let novosValores = {
-        valorFieam: Number(valorFieam),
-        valorSesi: Number(valorSesi),
-        valorSenai: Number(valorSenai),
-        valorIel: Number(valorIel),
-        totalGeral: Number(totalGeral),
-      };
+      // 3.a) Se já existe histórico, pega os valores antigos (ou 0, se null)
+      const vFieamAntigo = historicoExistente.valorFieam ?? 0;
+      const vSesiAntigo = historicoExistente.valorSesi ?? 0;
+      const vSenaiAntigo = historicoExistente.valorSenai ?? 0;
+      const vIelAntigo = historicoExistente.valorIel ?? 0;
+      const totAntigo = historicoExistente.totalGeral ?? 0;
 
+      // 3.b) Calcula novosValoresHistorico conforme a estratégia
       if (estrategia === 'somar') {
-        novosValores = {
-          valorFieam: historicoExistente.valorFieam + Number(valorFieam),
-          valorSesi: historicoExistente.valorSesi + Number(valorSesi),
-          valorSenai: historicoExistente.valorSenai + Number(valorSenai),
-          valorIel: historicoExistente.valorIel + Number(valorIel),
-          totalGeral: historicoExistente.totalGeral + Number(totalGeral)
+        novosValoresHistorico = {
+          valorFieam: vFieamAntigo + vFieamNovo,
+          valorSesi: vSesiAntigo + vSesiNovo,
+          valorSenai: vSenaiAntigo + vSenaiNovo,
+          valorIel: vIelAntigo + vIelNovo,
+          totalGeral: totAntigo + totGeralNovo,
         };
       } else if (estrategia === 'media') {
-        novosValores = {
-          valorFieam: (historicoExistente.valorFieam + Number(valorFieam)) / 2,
-          valorSesi: (historicoExistente.valorSesi + Number(valorSesi)) / 2,
-          valorSenai: (historicoExistente.valorSenai + Number(valorSenai)) / 2,
-          valorIel: (historicoExistente.valorIel + Number(valorIel)) / 2,
-          totalGeral: (historicoExistente.totalGeral + Number(totalGeral)) / 2
+        novosValoresHistorico = {
+          valorFieam: (vFieamAntigo + vFieamNovo) / 2,
+          valorSesi: (vSesiAntigo + vSesiNovo) / 2,
+          valorSenai: (vSenaiAntigo + vSenaiNovo) / 2,
+          valorIel: (vIelAntigo + vIelNovo) / 2,
+          totalGeral: (totAntigo + totGeralNovo) / 2,
+        };
+      } else if (estrategia === 'manter') {
+        // “último valor” simplesmente pegar o que veio do body
+        novosValoresHistorico = {
+          valorFieam: vFieamNovo,
+          valorSesi: vSesiNovo,
+          valorSenai: vSenaiNovo,
+          valorIel: vIelNovo,
+          totalGeral: totGeralNovo,
+        };
+      } else {
+        return res.status(400).json({ message: 'Estratégia inválida.' });
+      }
+
+      // 3.c) Atualiza o registro de histórico
+      await prisma.historico.update({
+        where: { id: historicoExistente.id },
+        data: {
+          ...novosValoresHistorico,
+          dataAlteracao: new Date(),
+        },
+      });
+    } else {
+      // 3.d) Se não existia histórico, cria um novo com base na estratégia
+      //    (nota: para “média”, se não existia, ficamos com metade do novo valor)
+      if (estrategia === 'somar' || estrategia === 'ultimo') {
+        // Neste caso, quando não existia antes, soma==novo ou último==novo
+        novosValoresHistorico = {
+          valorFieam: vFieamNovo,
+          valorSesi: vSesiNovo,
+          valorSenai: vSenaiNovo,
+          valorIel: vIelNovo,
+          totalGeral: totGeralNovo,
+        };
+      } else if (estrategia === 'media') {
+        novosValoresHistorico = {
+          valorFieam: vFieamNovo / 2,
+          valorSesi: vSesiNovo / 2,
+          valorSenai: vSenaiNovo / 2,
+          valorIel: vIelNovo / 2,
+          totalGeral: totGeralNovo / 2,
         };
       }
 
-      novoHistorico = await prisma.historico.update({
-        where: { id: historicoExistente.id },
+      await prisma.historico.create({
         data: {
-          ...novosValores,
-          dataAlteracao: new Date()
-        }
-      });
-
-    } else {
-      novoHistorico = await prisma.historico.create({
-        data: {
-          itemId: Number(itemId),
-          setorId: Number(setorId),
-          ano: Number(ano),
-          mes: mes,
-          valorFieam: Number(valorFieam),
-          valorSesi: Number(valorSesi),
-          valorSenai: Number(valorSenai),
-          valorIel: Number(valorIel),
-          totalGeral: Number(totalGeral),
-          usuarioId: req.usuario.id,
-        }
+          itemId: numericItemId,
+          setorId: numericSetorId,
+          ano: numericAno,
+          mes: numericMes,
+          valorFieam: novosValoresHistorico.valorFieam,
+          valorSesi: novosValoresHistorico.valorSesi,
+          valorSenai: novosValoresHistorico.valorSenai,
+          valorIel: novosValoresHistorico.valorIel,
+          totalGeral: novosValoresHistorico.totalGeral,
+          usuarioId: req.usuario.id,   // ajuste conforme seu middleware de autenticação
+          dataAlteracao: new Date(),
+        },
       });
     }
 
-    // atualizar o valor para a instituição FIEAM
-    await prisma.valor_item.updateMany({
+    // 4) Agora atualiza (ou cria) os registros em valor_item para cada instituição
+    //    Para cada instituição, usamos o valor vindo no body (não somamos nem fazemos média aqui).
+    //    Se você quiser aplicar soma/média nesse valor_item também, troque Number(...) pelo cálculo
+    //    de “valorAtualNoBanco + vXNovo” ou “(valorAtual + vXNovo)/2”.
+
+    // 4.a) FIEAM (instituicao_id = 1)
+    const updateFieam = await prisma.valor_item.updateMany({
       where: {
-        item_id: itemId,
-        mes: Number(mes),
-        instituicao_id: 1
+        item_id: numericItemId,
+        mes: numericMes,
+        instituicao_id: 1,
       },
       data: {
-        valor: Number(valorFieam)
-      }
-    })
+        valor: vFieamNovo,
+      },
+    });
+    // Se não existir nenhum registro para (item_id, mes, instituicao_id=1), talvez queira criar:
+    if (updateFieam.count === 0) {
+      await prisma.valor_item.create({
+        data: {
+          item_id: numericItemId,
+          instituicao_id: 1,
+          mes: numericMes,
+          valor: vFieamNovo,
+        },
+      });
+    }
 
-    // atualizar o valor para a instituição SESI
-    await prisma.valor_item.updateMany({
+    // 4.b) SESI (instituicao_id = 2)
+    const updateSesi = await prisma.valor_item.updateMany({
       where: {
-        item_id: itemId,
-        mes: Number(mes),
-        instituicao_id: 2
+        item_id: numericItemId,
+        mes: numericMes,
+        instituicao_id: 2,
       },
       data: {
-        valor: Number(valorSesi)
-      }
-    })
+        valor: vSesiNovo,
+      },
+    });
+    if (updateSesi.count === 0) {
+      await prisma.valor_item.create({
+        data: {
+          item_id: numericItemId,
+          instituicao_id: 2,
+          mes: numericMes,
+          valor: vSesiNovo,
+        },
+      });
+    }
 
-    // atualizar o valor para a instituição SENAI
-    await prisma.valor_item.updateMany({
+    // 4.c) SENAI (instituicao_id = 3)
+    const updateSenai = await prisma.valor_item.updateMany({
       where: {
-        item_id: itemId,
-        mes: Number(mes),
-        instituicao_id: 3
+        item_id: numericItemId,
+        mes: numericMes,
+        instituicao_id: 3,
       },
       data: {
-        valor: Number(valorSenai)
-      }
-    })
+        valor: vSenaiNovo,
+      },
+    });
+    if (updateSenai.count === 0) {
+      await prisma.valor_item.create({
+        data: {
+          item_id: numericItemId,
+          instituicao_id: 3,
+          mes: numericMes,
+          valor: vSenaiNovo,
+        },
+      });
+    }
 
-    // atualizar o valor para a instituição IEL
-    await prisma.valor_item.updateMany({
+    // 4.d) IEL (instituicao_id = 4)
+    const updateIel = await prisma.valor_item.updateMany({
       where: {
-        item_id: itemId,
-        mes: Number(mes),
-        instituicao_id: 4
+        item_id: numericItemId,
+        mes: numericMes,
+        instituicao_id: 4,
       },
       data: {
-        valor: Number(valorIel)
-      }
-    })
+        valor: vIelNovo,
+      },
+    });
+    if (updateIel.count === 0) {
+      await prisma.valor_item.create({
+        data: {
+          item_id: numericItemId,
+          instituicao_id: 4,
+          mes: numericMes,
+          valor: vIelNovo,
+        },
+      });
+    }
 
-    res.status(200).json({ message: 'Histórico atualizado com sucesso.', historico: novoHistorico });
+    // 5) Retorna resposta de sucesso
+    return res.status(200).json({
+      message: 'Valores atualizados com sucesso no Histórico e em valor_item.',
+      historicoAtualizado: novosValoresHistorico,
+      atualizacoesValorItem: {
+        fieam: updateFieam.count,
+        sesi: updateSesi.count,
+        senai: updateSenai.count,
+        iel: updateIel.count,
+      },
+    });
   } catch (error) {
-    console.error('Erro ao atualizar item:', error);
-    res.status(500).json({ error: 'Erro ao atualizar valores do item.' });
+    console.error('Erro ao atualizar valores do item:', error);
+    return res.status(500).json({ error: 'Erro interno ao atualizar valores.' });
   }
 };
 

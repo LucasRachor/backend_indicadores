@@ -41,6 +41,9 @@ const retornarHistoricos = async (req, res) => {
             valorIel: true,
             totalGeral: true,
             dataAlteracao: true,
+        },
+        orderBy: {
+            dataAlteracao: 'desc'
         }
     })
 

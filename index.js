@@ -8,10 +8,10 @@ const authRoutes = require('./routes/authRoutes');
 const usuarioRoutes = require('./routes/usuarioRoutes');
 const setorRoutes = require('./routes/setorRoutes');
 const perfilRoutes = require('./routes/perfilRoutes');
-const itensRouter = require('./routes/itens');
+const itensRouter = require('./routes/itensRoutes');
 const historicoRoutes = require('./routes/historicoRoutes')
 const atualizarItemRoutes = require('./routes/atualizarItem');
-const jornadaRoutes = require('./routes/jornada');
+const jornadaRoutes = require('./routes/jornadaRoutes');
 const propostasRoute = require('./routes/propostas');
 
 app.use(cors({ origin: '*', credentials: true }));
