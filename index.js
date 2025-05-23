@@ -74,7 +74,7 @@ const criarUsuariosPadrao = async () => {
           id: 1,
           nome: 'Setor Padrão',
           descricao: 'Setor para o usuário master',
-          tipo: 'Administrador'
+          slug: ''
         }
       });
 

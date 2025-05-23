@@ -21,7 +21,7 @@ model Historico {
   totalGeral    Float
   dataAlteracao DateTime @default(now())
   item          Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
-  setor         Setor    @relation(fields: [setorId], references: [id])
+  setor         Setor    @relation(fields: [setorId], references: [id], onDelete: Cascade)
   usuario       Usuario  @relation(fields: [usuarioId], references: [id])
 
   @@index([itemId])
@@ -43,7 +43,7 @@ model Item {
   nome      String
   detalhes  String?
   setor_id  Int
-  setor     Setor        @relation(fields: [setor_id], references: [id])
+  setor     Setor        @relation(fields: [setor_id], references: [id], onDelete: Cascade)
   ano       Int
   atividade Boolean      @default(false)
   valores   valor_item[]
@@ -67,7 +67,7 @@ model Setor {
   id                   Int                    @id @default(autoincrement())
   nome                 String                 @unique
   descricao            String?
-  tipo                 String
+  slug                 String                 @unique @default("")
   historicos           Historico[]
   itens                Item[]
   usuarios             Usuario[]
@@ -90,7 +90,7 @@ model Usuario {
   setor           Setor?                 @relation(fields: [setorId], references: [id])
   historicos      Historico[]
   usuarioSetores  UsuarioSetor[]
-  jornadas        JornadaColaboradores[] // <- RELAÇÃO INVERTIDA ADICIONADA
+  jornadas        JornadaColaboradores[]
 
   @@index([perfilId])
   @@index([setorId])
