@@ -1,8 +1,27 @@
 const prisma = require('../prisma/client');
 
+async function atualizarValor(numero, valor, itemId, mes) {
+
+  try {
+    return await prisma.valor_item.updateMany({
+      where: {
+        item_id: itemId,
+        mes: mes,
+        instituicao_id: numero,
+      },
+      data: {
+        valor: valor,
+      },
+    });
+
+  } catch (error) {
+    console.log(error);
+  }
+}
+
 const cadastrarItem = async (req, res) => {
   try {
-    const { nome, detalhes, setorId, ano, instituicoes, atividade } = req.body;
+    const { nome, detalhes, setorId, ano, instituicoes, atividade, moeda } = req.body;
 
     // 1. Cadastrar item
     const novoItem = await prisma.item.create({
@@ -12,6 +31,7 @@ const cadastrarItem = async (req, res) => {
         setor_id: setorId,
         ano,
         atividade,
+        moeda,
       },
     });
 
@@ -49,6 +69,188 @@ const cadastrarItem = async (req, res) => {
     res.status(500).json({ error: error.message });
     console.error('Erro ao cadastrar item:', error);
 
+  }
+};
+
+const atualizarValoresItem = async (req, res) => {
+  try {
+
+    // definimos o nosso data:
+    const {
+      setorId,
+      itemId,
+      ano,
+      mes,
+      valorFieam,
+      valorSesi,
+      valorSenai,
+      valorIel,
+      totalGeral,
+      estrategia,
+    } = req.body;
+
+    // mapeamento dos valores por instiuição
+    const chavesPorInstituicao = [
+      "valorFieam",
+      "valorSesi",
+      "valorSenai",
+      "valorIel",
+    ];
+
+    // convertemos todos os valores para Number
+    const numericSetorId = Number(setorId);
+    const numericItemId = Number(itemId);
+    const numericAno = Number(ano);
+    const numericMes = Number(mes);
+
+    const vFieamNovo = Number(valorFieam);
+    const vSesiNovo = Number(valorSesi);
+    const vSenaiNovo = Number(valorSenai);
+    const vIelNovo = Number(valorIel);
+    const totGeralNovo = Number(totalGeral);
+
+    // verifica se algum dado é NaN
+    if (
+      isNaN(numericSetorId) ||
+      isNaN(numericItemId) ||
+      isNaN(numericAno) ||
+      isNaN(numericMes) ||
+      isNaN(vFieamNovo) ||
+      isNaN(vSesiNovo) ||
+      isNaN(vSenaiNovo) ||
+      isNaN(vIelNovo) ||
+      isNaN(totGeralNovo)
+    ) {
+      return res.status(400).json({ message: 'Dados inválidos no body.' });
+    }
+
+    // tenta encontrar o histórico existente para a data que veio do body
+    const historicoExistente = await prisma.historico.findFirst({
+      where: {
+        itemId: numericItemId,
+        setorId: numericSetorId,
+        ano: numericAno,
+        mes: numericMes,
+      },
+    });
+
+    let novosValoresHistorico = {
+      valorFieam: vFieamNovo,
+      valorSesi: vSesiNovo,
+      valorSenai: vSenaiNovo,
+      valorIel: vIelNovo,
+      totalGeral: totGeralNovo,
+    };
+
+    if (historicoExistente) {
+      // se já existe histórico, pega os valores antigos (ou 0, se null)
+      const vFieamAntigo = historicoExistente.valorFieam ?? 0;
+      const vSesiAntigo = historicoExistente.valorSesi ?? 0;
+      const vSenaiAntigo = historicoExistente.valorSenai ?? 0;
+      const vIelAntigo = historicoExistente.valorIel ?? 0;
+      const totAntigo = historicoExistente.totalGeral ?? 0;
+
+      switch (estrategia) {
+        case 'somar':
+          novosValoresHistorico = {
+            valorFieam: vFieamAntigo + vFieamNovo,
+            valorSesi: vSesiAntigo + vSesiNovo,
+            valorSenai: vSenaiAntigo + vSenaiNovo,
+            valorIel: vIelAntigo + vIelNovo,
+            totalGeral: totAntigo + totGeralNovo,
+          };
+
+          break;
+
+        case 'media':
+          novosValoresHistorico = {
+            valorFieam: (vFieamAntigo + vFieamNovo) / 2,
+            valorSesi: (vSesiAntigo + vSesiNovo) / 2,
+            valorSenai: (vSenaiAntigo + vSenaiNovo) / 2,
+            valorIel: (vIelAntigo + vIelNovo) / 2,
+            totalGeral: (totAntigo + totGeralNovo) / 2,
+          };
+
+          break;
+
+        case 'manter':
+          novosValoresHistorico = {
+            valorFieam: vFieamNovo,
+            valorSesi: vSesiNovo,
+            valorSenai: vSenaiNovo,
+            valorIel: vIelNovo,
+            totalGeral: totGeralNovo,
+          };
+
+          break;
+      }
+
+      // 3.c) Atualiza o registro de histórico
+      await prisma.historico.update({
+        where: { id: historicoExistente.id },
+        data: {
+          ...novosValoresHistorico,
+          dataAlteracao: new Date(),
+        },
+      });
+
+      for (let i = 1; i <= 4; i++) {
+        const chave = chavesPorInstituicao[i - 1];
+        const valor = novosValoresHistorico[chave];
+        try {
+          await atualizarValor(i, valor, numericItemId, numericMes);
+        } catch (err) {
+          console.error("Falha ao atualizar instituição", i, err);
+          return res.status(500).json({ message: "Erro interno ao atualizar valor." });
+        }
+      }
+
+    } else {
+
+      novosValoresHistorico = {
+        valorFieam: vFieamNovo,
+        valorSesi: vSesiNovo,
+        valorSenai: vSenaiNovo,
+        valorIel: vIelNovo,
+        totalGeral: totGeralNovo,
+      };
+
+      await prisma.historico.create({
+        data: {
+          itemId: numericItemId,
+          setorId: numericSetorId,
+          ano: numericAno,
+          mes: numericMes,
+          valorFieam: novosValoresHistorico.valorFieam,
+          valorSesi: novosValoresHistorico.valorSesi,
+          valorSenai: novosValoresHistorico.valorSenai,
+          valorIel: novosValoresHistorico.valorIel,
+          totalGeral: novosValoresHistorico.totalGeral,
+          usuarioId: req.usuario.id,   // ajuste conforme seu middleware de autenticação
+          dataAlteracao: new Date(),
+        },
+      });
+    }
+
+    for (let i = 1; i <= 4; i++) {
+      const chave = chavesPorInstituicao[i - 1];
+      const valor = novosValoresHistorico[chave];
+      try {
+        await atualizarValor(i, valor, numericItemId, numericMes);
+      } catch (err) {
+        console.error("Falha ao atualizar instituição", i, err);
+        return res.status(500).json({ message: "Erro interno ao atualizar valor." });
+      }
+    }
+
+    // Retorna resposta de sucesso
+    return res.status(200).json({
+      message: 'Valores atualizados com sucesso no Histórico e em valor_item.',
+      historicoAtualizado: novosValoresHistorico,
+    });
+  } catch (error) {
+    console.error('Erro ao atualizar valores do item:', error);
+    return res.status(500).json({ error: 'Erro interno ao atualizar valores.' });
   }
 };
 
@@ -128,6 +330,7 @@ const listarValorItens = async (req, res) => {
       ano: true,
       setor_id: true,
       atividade: true,
+      moeda: true,
       valores: {
         where: {
           valor: {
@@ -138,7 +341,6 @@ const listarValorItens = async (req, res) => {
           instituicao_id: true,
           mes: true,
           valor: true,
-          totalGeral: true,
         }
       }
     }
@@ -195,12 +397,12 @@ const excluirItem = async (req, res) => {
   }
 };
 
-
 module.exports = {
   cadastrarItem,
   listarItens,
   buscarItemPorId,
   atualizarItem,
   excluirItem,
-  listarValorItens
+  listarValorItens,
+  atualizarValoresItem
 };

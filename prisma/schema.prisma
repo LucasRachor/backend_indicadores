@@ -46,6 +46,7 @@ model Item {
   setor     Setor        @relation(fields: [setor_id], references: [id], onDelete: Cascade)
   ano       Int
   atividade Boolean      @default(false)
+  moeda     Boolean      @default(false)
   valores   valor_item[]
   createdAt DateTime     @default(now())
   Historico Historico[]
