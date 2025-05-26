@@ -15,22 +15,16 @@ const verifyAdmin = async (req, res, next) => {
     return res.status(401).json({ message: 'Token não fornecido' });
   }
 
-  try {
-    // fazemos o decode do token
-    const token = authHeader.split(' ')[1];
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+  // fazemos o decode do token
+  const token = authHeader.split(' ')[1];
+  const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    // verificamos se o campo name existe no token, se não, gera uma exceção
-    if (!decoded.name) {
-      return res.status(401).json({ message: 'Token inválido: e-mail ausente' });
-    }
-
-    email = decoded.name;
-
-  } catch (err) {
-    console.log(err)
-    return res.status(401).json({ message: 'Token inválido' });
+  // verificamos se o campo name existe no token, se não, gera uma exceção
+  if (!decoded.name) {
+    return res.status(401).json({ message: 'Token inválido: e-mail ausente' });
   }
+
+  email = decoded.name;
 
   // fazemos a busca do usuario no banco para saber o perfil que ele está vinculado
   const usuario = await prisma.usuario.findUnique({
