@@ -6,9 +6,15 @@ async function salt(saltRounds) {
   return await bcrypt.genSalt(saltRounds)
 }
 
-// função para criar os usuarios e mapear suas jornadas!
+// função para criar os usuarios
 const criar = async (req, res) => {
   const { nome, email, senha, jornadaTrabalho, statusSenha, perfilId, setorIds = [] } = req.body;
+
+  if (senha === '' || null) {
+    return res.status(400).json({
+      message: "A senha é necessária para cadastro!"
+    })
+  }
 
   // tenta criar o novo usuario
   try {
@@ -33,7 +39,11 @@ const criar = async (req, res) => {
   } catch (error) {
 
     console.error('Erro ao criar usuário:', error);
-
+    if (error.code === 'P2002') {
+      return res.status(409).json({
+        message: "Email já cadastrado! Tente novamente"
+      })
+    }
     // retorna um erro 500 (internal server error) caso tenha acontecido algum erro interno!
     res.status(500).json({ erro: error.message });
   }

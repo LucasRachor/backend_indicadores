@@ -74,7 +74,6 @@ const cadastrarItem = async (req, res) => {
 
 const atualizarValoresItem = async (req, res) => {
   try {
-
     // definimos o nosso data:
     const {
       setorId,
@@ -88,6 +87,12 @@ const atualizarValoresItem = async (req, res) => {
       totalGeral,
       estrategia,
     } = req.body;
+
+    if (valorFieam === 0 && valorSesi === 0 && valorSenai === 0 && valorIel === 0) {
+      return res.status(400).json({
+        message: "Valores em branco, tente novamente!"
+      })
+    }
 
     // mapeamento dos valores por instiuição
     const chavesPorInstituicao = [
@@ -226,7 +231,7 @@ const atualizarValoresItem = async (req, res) => {
           valorSenai: novosValoresHistorico.valorSenai,
           valorIel: novosValoresHistorico.valorIel,
           totalGeral: novosValoresHistorico.totalGeral,
-          usuarioId: req.usuario.id,   // ajuste conforme seu middleware de autenticação
+          usuarioId: req.usuario.id,
           dataAlteracao: new Date(),
         },
       });
