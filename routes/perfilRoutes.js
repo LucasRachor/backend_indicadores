@@ -4,9 +4,9 @@ const { listar, criar, editar, excluir } = require('../controllers/perfilControl
 const autenticar = require('../middleware/authMiddleware');
 const verificarAdmin = require('../middleware/verificarAdmin');
 
-router.get('/', autenticar, listar);
-router.post('/', autenticar, criar);
-router.put('/:id', autenticar, editar);
-router.delete('/:id', autenticar, verificarAdmin, excluir);
+router.get('/', listar);
+router.post('/', criar);
+router.put('/:id', editar);
+router.delete('/:id', verificarAdmin, excluir);
 
 module.exports = router;

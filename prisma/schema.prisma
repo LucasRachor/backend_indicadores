@@ -22,7 +22,7 @@ model Historico {
   dataAlteracao DateTime @default(now())
   item          Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
   setor         Setor    @relation(fields: [setorId], references: [id], onDelete: Cascade)
-  usuario       Usuario  @relation(fields: [usuarioId], references: [id])
+  usuario       Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
 
   @@index([itemId])
   @@index([setorId])

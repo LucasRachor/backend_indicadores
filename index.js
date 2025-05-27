@@ -11,19 +11,21 @@ const perfilRoutes = require('./routes/perfilRoutes');
 const itensRouter = require('./routes/itensRoutes');
 const historicoRoutes = require('./routes/historicoRoutes')
 const jornadaRoutes = require('./routes/jornadaRoutes');
-const propostasRoute = require('./routes/propostas');
+const propostasRoute = require('./routes/propostasRoutes');
+const bcrypt = require('bcrypt');
+const autenticar = require('./middleware/authMiddleware');
 
 app.use(cors({ origin: '*', credentials: true }));
 app.use(express.json());
 
-app.use('/api/propostas', propostasRoute);
-app.use('/api/jornadas', jornadaRoutes);
+app.use('/api/propostas', autenticar, propostasRoute);
+app.use('/api/jornadas', autenticar, jornadaRoutes);
 app.use('/api/auth', authRoutes);
-app.use('/api/usuarios', usuarioRoutes);
-app.use('/api/setores', setorRoutes);
-app.use('/api/perfis', perfilRoutes);
-app.use('/api/itens', itensRouter);
-app.use('/api/historico', historicoRoutes);
+app.use('/api/usuarios', autenticar, usuarioRoutes);
+app.use('/api/setores', autenticar, setorRoutes);
+app.use('/api/perfis', autenticar, perfilRoutes);
+app.use('/api/itens', autenticar, itensRouter);
+app.use('/api/historico', autenticar, historicoRoutes);
 
 app.get('/', (req, res) => res.send('API Online'));
 
@@ -79,7 +81,7 @@ const criarUsuariosPadrao = async () => {
         data: {
           nome: 'Usuário Master',
           email: 'master@fieam.org.br',
-          senha: 'admin123',
+          senha: await bcrypt.hash('admin123', 10),
           statusSenha: true,
           jornadaTrabalho: '00:00',
           perfil: { connect: { id: 1 } },
