@@ -41,25 +41,23 @@ const listar = async (req, res) => {
   })
 
   if (perfilId === 1) {
-    const setorAdm = await prisma.setor.findMany({
-      where: {
-        nome: {
-          not: "Setor Padrão"
-        }
-      }
-    });
+    const setorAdm = await prisma.setor.findMany();
 
-    res.json(setorAdm)
-  } else {
+    return res.json(setorAdm)
+
+  } else if (perfilId === 4) {
+    const setorVisualizador = await prisma.setor.findMany();
+
+    return res.json(setorVisualizador)
+  }
+
+  else {
     const setorIds = usuario.usuarioSetores.map(user => user.setorId)
     const setores = await prisma.setor.findMany({
       where: {
         id: {
           in: setorIds
         },
-        nome: {
-          not: "Setor Padrão"
-        }
       }
     });
     res.json(setores);
